@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* ... (All your existing CSS remains exactly the same) ... */
+    * { transition: none !important; animation: none !important; -webkit-tap-highlight-color: transparent; outline: none; box-sizing: border-box;}
+    body { background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; overflow-x: hidden;}
+    .view-container { display: none; padding: 15px; }
+    .active-view { display: block; }
+    .col-4 .btn { width: 100% !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 44px;}
+    .welcome-card { background: #ffffff; padding: 25px 20px; border-radius: 20px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .user-name { font-size: 1.5rem; color: #0f172a; font-weight: 800; }
+    .menu-grid { display: flex; flex-direction: column; gap: 12px; }
+    .modern-btn { display: flex; align-items: center; padding: 18px; background: #fff; border-radius: 16px; text-decoration: none !important; color: #334155; font-weight: 600; border: 1px solid rgba(0,0,0,0.05); min-height: 60px;}
+    .modern-btn:active { background: #f8fafc; transform: scale(0.98); }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #cbd5e1; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+    .weekday { text-align: center; font-weight: 800; font-size: 0.65rem; background: #f8fafc; padding: 10px 0; color: #64748b; }
+    .day-box { height: 85px; display: flex; flex-direction: column; background: #ffffff; cursor: pointer; border: none; }
+    .day-num { font-weight: 700; font-size: 0.9rem; text-align: center; padding: 5px 0; color: #1e293b; }
+    .slot { flex: 1; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; color: #ffffff !important; text-shadow: 0px 1px 2px rgba(0,0,0,0.2); }
+    .bg-P { background-color: #10b981 !important; }
+    .bg-H { background-color: #ef4444 !important; }
+    .bg-CL, .bg-EL, .bg-CO { background-color: #3b82f6 !important; }
+    .bg-none { background-color: #ffffff !important; }
+    .form-control, .form-select { height: 55px !important; border-radius: 12px !important; border: 1px solid #e2e8f0 !important; font-weight: 500; font-size: 16px !important; padding: 12px 16px !important;}
+    input[type="date"] { position: relative; color: #64748b; font-size: 16px !important;}
+    input[type="date"]::-webkit-datetime-edit { color: transparent; }
+    input[type="date"]:focus::-webkit-datetime-edit { color: #1e293b !important; }
+    input[type="date"]:valid::-webkit-datetime-edit { color: #1e293b !important; }
+    .date-wrapper { position: relative; }
+    .date-placeholder { position: absolute; top: 50%; left: 16px; transform: translateY(-50%); color: #94a3b8; pointer-events: none; font-size: 16px; transition: opacity 0.2s; }
+    input[type="date"]:focus + .date-placeholder, input[type="date"]:valid + .date-placeholder { opacity: 0; }
+    #status-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.98); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; padding: 20px;}
+    button, .btn, .modern-btn { -webkit-tap-highlight-color: rgba(0,0,0,0.1); touch-action: manipulation; min-height: 44px; }
+    .container { padding-left: 15px; padding-right: 15px; }
+    @media (max-width: 576px) { .user-name { font-size: 1.25rem; } .day-box { height: 75px; } .slot { font-size: 0.65rem; } }
+  </style>
+</head>
+<body>
+  <div id="status-overlay">
+    <div id="loading-spinner" class="text-center">
+      <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+      <h4 class="fw-bold">Generating PDF</h4>
+      <p class="text-muted small">Please wait while we prepare your document...</p>
+    </div>
+    <div id="download-area" style="display:none; width: 100%; max-width: 400px;" class="text-center">
+      <div class="text-success mb-3">
+        <svg width="60" height="60" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>
+      </div>
+      <h4 class="fw-bold mb-4">Leave Form Ready</h4>
+      <a id="dl-link" href="#" target="_blank" class="btn btn-primary btn-lg w-100 fw-bold py-3 mb-3 shadow" style="border-radius: 12px;">📥 DOWNLOAD PDF</a>
+      <button class="btn btn-success btn-lg w-100 fw-bold py-3 mb-3 shadow" style="border-radius: 12px;" onclick="sendPrefilledMail()">📧 MAIL TO MANAGER</button>
+      <button class="btn btn-outline-primary btn-lg w-100 fw-bold py-3 shadow" style="border-radius: 12px;" onclick="closeOverlay()">🏠 BACK TO DASHBOARD</button>
+    </div>
+  </div>
+  
+  <div class="container mt-2" style="max-width: 480px;">
+    <div id="selection-view" class="view-container active-view text-center">
+      <div class="mt-5 mb-4">
+        <h3 class="fw-bold text-primary">AMS Portal</h3>
+        <p class="text-muted small">Select your profile to continue</p>
+      </div>
+      <div class="card p-4 border-0 shadow-sm" style="border-radius: 20px;">
+        <select id="employeeSelect" class="form-select form-select-lg mb-3 border-0 bg-light">
+          <option value="" disabled selected>Select your name</option>
+          <option>ARUN T</option>
+          <option>GOKUL M</option>
+          <option>SARATH S</option>
+          <option>SETHULAKSHMI M</option>
+          <option>SOORYA K R</option>
+          <option>VISHNU THILAK</option>
+        </select>
+        <button class="btn btn-primary btn-lg w-100 fw-bold shadow-sm" style="border-radius: 12px;" onclick="goToDashboard()">LOGIN</button>
+      </div>
+    </div>
+    
+    <div id="dashboard-view" class="view-container text-center">
+      <div class="welcome-card">
+        <div class="welcome-text text-uppercase small fw-bold text-muted mb-1">Welcome</div>
+        <div id="userHeader" class="user-name"></div>
+      </div>
+      <div class="menu-grid">
+        <a href="javascript:void(0)" class="modern-btn" onclick="goToCalendar()">
+          <span class="fs-4 me-3">📅</span>
+          <span class="flex-grow-1 text-start">Mark Attendance</span>
+          <span class="text-muted small">▶</span>
+        </a>
+        <a href="javascript:void(0)" class="modern-btn" onclick="showLeaves()">
+          <span class="fs-4 me-3">📊</span>
+          <span class="flex-grow-1 text-start">Remaining Leaves</span>
+          <span class="text-muted small">▶</span>
+        </a>
+        <a href="javascript:void(0)" class="modern-btn" onclick="switchView('leave-form-view')">
+          <span class="fs-4 me-3">📝</span>
+          <span class="flex-grow-1 text-start">Apply for Leave</span>
+          <span class="text-muted small">▶</span>
+        </a>
+      </div>
+      <a href="javascript:void(0)" class="btn btn-link text-danger fw-bold mt-5 text-decoration-none" onclick="logout()">Sign Out</a>
+    </div>
+    
+    <div id="calendar-view" class="view-container">
+      <div class="d-flex justify-content-between mb-4 align-items-center">
+         <button class="btn btn-sm btn-dark px-3 rounded-pill" onclick="switchView('dashboard-view')">Back</button>
+         <div class="d-flex align-items-center bg-white p-1 rounded-pill shadow-sm border">
+           <button class="btn btn-sm border-0" onclick="changeMonth(-1)">◀</button>
+           <h6 id="monthLabel" class="mb-0 mx-2 fw-bold text-center" style="width: 110px; font-size: 0.9rem;"></h6>
+           <button class="btn btn-sm border-0" onclick="changeMonth(1)">▶</button>
+         </div>
+      </div>
+      <div class="calendar-grid">
+        <div class="weekday">SUN</div><div class="weekday">MON</div><div class="weekday">TUE</div><div class="weekday">WED</div><div class="weekday">THU</div><div class="weekday">FRI</div><div class="weekday">SAT</div>
+        <div id="calendarGrid" style="display: contents;"></div>
+      </div>
+    </div>
+    
+    <div id="leave-form-view" class="view-container">
+      <button class="btn btn-sm btn-dark mb-4 px-3 rounded-pill" onclick="switchView('dashboard-view')">Back</button>
+      <div class="card p-4 border-0 shadow-sm" style="border-radius: 20px;">
+        <h6 class="fw-bold mb-3 text-muted small">NEW LEAVE APPLICATION</h6>
+        <div class="row g-2 mb-4">
+          <div class="col-4"><button id="btn-half" class="btn btn-outline-primary btn-sm fw-bold rounded-pill w-100" onclick="setMode('half')">Half</button></div>
+          <div class="col-4"><button id="btn-one" class="btn btn-outline-primary btn-sm fw-bold rounded-pill w-100" onclick="setMode('one')">1 Day</button></div>
+          <div class="col-4"><button id="btn-more" class="btn btn-outline-primary btn-sm fw-bold rounded-pill w-100" onclick="setMode('more')">Range</button></div>
+        </div>
+        <div id="date-input-area" style="display:none;">
+          <div id="div-half" style="display:none;" class="mb-3">
+            <label class="small fw-bold text-muted mb-2">📅 Date & Slot</label>
+            <div class="date-wrapper mb-2"><input type="date" id="l-sd-half" class="form-control"><span class="date-placeholder">Select Date</span></div>
+            <select id="l-sl" class="form-select"><option value="FORENOON">FORENOON</option><option value="AFTERNOON">AFTERNOON</option></select>
+          </div>
+          <div id="div-one" style="display:none;" class="mb-3">
+            <label class="small fw-bold text-muted mb-2">📅 Select Date</label>
+            <div class="date-wrapper"><input type="date" id="l-sd-one" class="form-control"><span class="date-placeholder">Select Date</span></div>
+          </div>
+          <div id="div-more" style="display:none;" class="mb-3">
+            <label class="small fw-bold text-muted mb-2">📅 Select Range</label>
+            <div class="row g-2"><div class="col-6"><div class="date-wrapper"><input type="date" id="l-from" class="form-control"><span class="date-placeholder">From</span></div></div><div class="col-6"><div class="date-wrapper"><input type="date" id="l-to" class="form-control"><span class="date-placeholder">To</span></div></div></div>
+          </div>
+          <label class="small fw-bold text-muted mb-2">📋 Leave Nature</label>
+          <select id="l-nat" class="form-select mb-3"><option>CL</option><option>EL</option><option>CO</option></select>
+          <label class="small fw-bold text-muted mb-2">✍️ Reason</label>
+          <textarea id="res" class="form-control mb-4" rows="3" placeholder="Brief reason..." style="height: auto !important; min-height: 100px;"></textarea>
+          <button class="btn btn-primary w-100 fw-bold py-3 shadow-sm" style="border-radius: 12px;" onclick="submitLeave()">SUBMIT REQUEST</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="attModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 shadow-lg" style="border-radius: 20px;"><div class="modal-header border-0 pb-0"><h6 id="fullDateText" class="fw-bold text-primary"></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-4 text-center"><div class="mb-4"><label class="fw-bold mb-2 small text-uppercase text-muted">Forenoon</label><select id="fn" class="form-select bg-light border-0 text-center fw-bold"><option>P</option><option>H</option><option>CL</option><option>EL</option><option>CO</option><option>OD</option></select></div><div><label class="fw-bold mb-2 small text-uppercase text-muted">Afternoon</label><select id="an" class="form-select bg-light border-0 text-center fw-bold"><option>P</option><option>H</option><option>CL</option><option>EL</option><option>CO</option><option>OD</option></select></div></div><div class="modal-footer border-0 pt-0"><button id="saveBtn" class="btn btn-primary w-100 fw-bold py-3 rounded-pill" onclick="saveAtt()">SAVE</button></div></div></div></div>
+  <div class="modal fade" id="leaveModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0 p-4 shadow-lg" style="border-radius: 20px;"><h6 class="fw-bold mb-4 text-center text-muted">AVAILABLE BALANCES</h6><div id="leave-loading" class="text-center py-5"><div class="spinner-border text-primary mb-3" style="width: 2.5rem; height: 2.5rem;"></div><p class="text-muted small">Loading balances...</p></div><div id="leave-data" class="row text-center" style="display: none;"><div class="col-4"><b>CL</b><h4 id="l-cl" class="text-primary fw-bold mt-2">0</h4></div><div class="col-4"><b>EL</b><h4 id="l-el" class="text-primary fw-bold mt-2">0</h4></div><div class="col-4"><b>CO</b><h4 id="l-co" class="text-primary fw-bold mt-2">0</h4></div></div></div></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    // --- GITHUB CONFIGURATION ---
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVUwxg3IfBDEz7Bt6ZyhF27E8FcHMbFhPWahmCcLGhNlMH0Ccs1noIZUTnIQkf4mlQrg/exec";
+
+    // Helper to call Google Apps Script from GitHub
+    async function runGAS(data) {
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+      return await response.json();
+    }
+
+    let selUser = "", selDay = 0, currentMode = "", viewDate = new Date();
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
+    function switchView(id) {
+      document.querySelectorAll('.view-container').forEach(v => v.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
+      window.scrollTo(0,0);
+    }
+    
+    function logout() { 
+      selUser = ""; 
+      document.getElementById('employeeSelect').selectedIndex = 0; 
+      switchView('selection-view'); 
+    }
+    
+    function goToDashboard() {
+      selUser = document.getElementById('employeeSelect').value;
+      if(!selUser) { alert("Select name first"); return; }
+      document.getElementById('userHeader').innerText = selUser;
+      switchView('dashboard-view');
+    }
+    
+    function closeOverlay() { 
+      document.getElementById('status-overlay').style.display = 'none'; 
+      currentMode = "";
+      document.getElementById('date-input-area').style.display = 'none';
+      ['btn-half','btn-one','btn-more'].forEach(id => {
+        document.getElementById(id).className = 'btn btn-outline-primary btn-sm fw-bold rounded-pill w-100';
+      });
+      document.getElementById('l-sd-half').value = '';
+      document.getElementById('l-sd-one').value = '';
+      document.getElementById('l-from').value = '';
+      document.getElementById('l-to').value = '';
+      document.getElementById('res').value = '';
+      switchView('dashboard-view'); 
+    }
+    
+    // UPDATED: Show Leaves with Fetch
+    async function showLeaves() {
+      const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
+      modal.show();
+      document.getElementById('leave-loading').style.display = 'block';
+      document.getElementById('leave-data').style.display = 'none';
+      
+      try {
+        const res = await runGAS({ action: "getLeaveBalances", name: selUser });
+        document.getElementById('leave-loading').style.display = 'none';
+        document.getElementById('leave-data').style.display = 'flex';
+        document.getElementById('l-cl').innerText = res.cl;
+        document.getElementById('l-el').innerText = res.el;
+        document.getElementById('l-co').innerText = res.co;
+      } catch (err) {
+        document.getElementById('leave-loading').style.display = 'none';
+        alert('Error loading balances');
+      }
+    }
+    
+    function goToCalendar() { viewDate = new Date(); renderCalendar(); switchView('calendar-view'); }
+    
+    function changeMonth(s) { viewDate.setMonth(viewDate.getMonth() + s); renderCalendar(); }
+    
+    // UPDATED: Render Calendar with Fetch
+    async function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = "<div class='p-5 text-center' style='grid-column:span 7'><div class='spinner-border spinner-border-sm text-muted'></div></div>";
+      document.getElementById('monthLabel').innerText = months[viewDate.getMonth()] + " " + viewDate.getFullYear();
+      
+      try {
+        const data = await runGAS({ action: "getExistingAttendance", name: selUser, month: viewDate.getMonth(), year: viewDate.getFullYear() });
+        grid.innerHTML = "";
+        const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
+        const days = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+        
+        for (let p = 0; p < first; p++) grid.appendChild(document.createElement('div'));
+        for (let i = 1; i <= days; i++) {
+          let div = document.createElement('div');
+          div.className = "day-box";
+          let fn = data[i] ? data[i].fn : "";
+          let an = data[i] ? data[i].an : "";
+          div.innerHTML = `<div class="day-num">${i}</div><div class="slot bg-${fn || 'none'}">${fn}</div><div class="slot bg-${an || 'none'}">${an}</div>`;
+          div.onclick = () => {
+            selDay = i;
+            document.getElementById('fullDateText').innerText = `${i} ${months[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
+            document.getElementById('fn').value = fn || "P";
+            document.getElementById('an').value = an || "P";
+            new bootstrap.Modal(document.getElementById('attModal')).show();
+          };
+          grid.appendChild(div);
+        }
+      } catch (err) {
+        grid.innerHTML = "Error loading data";
+      }
+    }
+    
+    // UPDATED: Save Attendance with Fetch
+    async function saveAtt() {
+      const fn = document.getElementById('fn').value;
+      const an = document.getElementById('an').value;
+      const dayBoxes = document.querySelectorAll('.day-box');
+      const box = Array.from(dayBoxes).find(b => b.querySelector('.day-num').innerText == selDay);
+      if(box) box.innerHTML = `<div class="day-num">${selDay}</div><div class="slot bg-${fn}">${fn}</div><div class="slot bg-${an}">${an}</div>`;
+      bootstrap.Modal.getInstance(document.getElementById('attModal')).hide();
+      
+      await runGAS({ 
+        action: "saveAttendance", 
+        name: selUser, day: selDay, month: viewDate.getMonth(), year: viewDate.getFullYear(), fn: fn, an: an 
+      });
+    }
+    
+    function setMode(m) {
+      currentMode = m;
+      ['btn-half','btn-one','btn-more'].forEach(id => {
+        document.getElementById(id).className = 'btn btn-outline-primary btn-sm fw-bold rounded-pill w-100';
+      });
+      document.getElementById('btn-'+m).className = 'btn btn-primary btn-sm fw-bold text-white rounded-pill shadow-sm w-100';
+      document.getElementById('date-input-area').style.display = 'block';
+      ['div-half','div-one','div-more'].forEach(id => document.getElementById(id).style.display = 'none');
+      document.getElementById('div-'+m).style.display = 'block';
+    }
+    
+    function calculateDays(s, e) {
+      let d1 = new Date(s), d2 = new Date(e);
+      return (d1 && d2 && d2 >= d1) ? (Math.ceil((d2-d1)/(1000*60*60*24))+1) : 0;
+    }
+    
+    function sendPrefilledMail() {
+      let subject = ""; let body = "";
+      if (currentMode === "half") {
+        const leaveDate = document.getElementById('l-sd-half').value;
+        const slot = document.getElementById('l-sl').value;
+        if (!leaveDate) { alert("Please select leave date"); return; }
+        const formattedDate = new Date(leaveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        subject = `Half Day Leave Request - ${formattedDate} (${slot})`;
+        body = `Respected sir,\n\nI am writing to formally request a half day leave on ${formattedDate} for ${slot} session.\n\nThank you,\n${selUser}`;
+      } else if (currentMode === "one") {
+        const leaveDate = document.getElementById('l-sd-one').value;
+        if (!leaveDate) { alert("Please select leave date"); return; }
+        const formattedDate = new Date(leaveDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        subject = `Leave Request for ${formattedDate}`;
+        body = `Respected sir,\n\nI am writing to formally request a leave on ${formattedDate}.\n\nThank you,\n${selUser}`;
+      } else {
+        const fromDate = document.getElementById('l-from').value;
+        const toDate = document.getElementById('l-to').value;
+        if (!fromDate || !toDate) { alert("Please select dates"); return; }
+        const f1 = new Date(fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        const f2 = new Date(toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+        subject = `Leave Request from ${f1} to ${f2}`;
+        body = `Respected sir,\n\nI am writing to formally request leave from ${f1} to ${f2}.\n\nThank you,\n${selUser}`;
+      }
+      const mailURL = `mailto:managerskill@kase.in?cc=hrmanager.kase@gmail.com&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailURL;
+    }
+    
+    // UPDATED: Submit Leave with Fetch
+    async function submitLeave() {
+      const overlay = document.getElementById('status-overlay');
+      const spinner = document.getElementById('loading-spinner');
+      const dlArea = document.getElementById('download-area');
+      
+      let fDate = "", tDate = "", days = 0;
+      if(currentMode==='half') { fDate = document.getElementById('l-sd-half').value; days = 0.5; }
+      else if(currentMode==='one') { fDate = document.getElementById('l-sd-one').value; days = 1; }
+      else { fDate = document.getElementById('l-from').value; tDate = document.getElementById('l-to').value; days = calculateDays(fDate, tDate); }
+      
+      if(!fDate) { alert("Please select date"); return; }
+      
+      overlay.style.display = 'flex';
+      spinner.style.display = 'block';
+      dlArea.style.display = 'none';
+      
+      try {
+        const res = await runGAS({ 
+          action: "processLeave", 
+          formData: {
+            name: selUser, from: fDate, to: tDate, halfDaySlot: document.getElementById('l-sl').value,
+            days: days, nature: document.getElementById('l-nat').value, reason: document.getElementById('res').value
+          }
+        });
+        
+        if(res.error) { overlay.style.display = 'none'; alert(res.error); return; }
+        if(res.base64) {
+          const link = document.getElementById('dl-link');
+          link.href = "data:application/pdf;base64," + res.base64;
+          link.download = res.fileName;
+          spinner.style.display = 'none';
+          dlArea.style.display = 'block';
+        }
+      } catch (err) {
+        overlay.style.display = 'none';
+        alert("Error generating PDF");
+      }
+    }
+  </script>
+</body>
+</html>
